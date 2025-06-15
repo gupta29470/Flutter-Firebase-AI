@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "716641920547",
+    "project_id": "flutter-vertex-ai-794b5",
+    "storage_bucket": "flutter-vertex-ai-794b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:716641920547:android:d1ca56bf4e653d45657396",
+        "android_client_info": {
+          "package_name": "com.gupta.flutter_vertex_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8Ck_QLIYXBdzFe6yRNo52kC04OAvAoDQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
