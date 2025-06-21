@@ -9,7 +9,9 @@ part 'chat_state.dart';
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _chatRepository;
 
-  ChatBloc(this._chatRepository) : super(const ChatInitial()) {
+  bool _isStreamCancelled = false;
+
+  ChatBloc(this._chatRepository) : super(const ChatState()) {
     on<SendMessage>(_onSendMessage);
     on<StreamContentFinished>(_onStreamContentFinished);
     on<StreamContentError>(_onStreamContentError);
@@ -19,10 +21,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     SendMessage event,
     Emitter<ChatState> emit,
   ) async {
-    List<ChatMessageModel> messages = [];
-    if (state is ChatLoaded) {
-      messages = (state as ChatLoaded).messages;
-    }
+    List<ChatMessageModel> messages = List.from(state.messages);
 
     final userMessage = ChatMessageModel(
       id: '${DateTime.now().microsecondsSinceEpoch}',
@@ -33,7 +32,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     messages.add(userMessage);
 
-    emit(ContentLoading());
+    emit(
+      state.copyWith(type: ChatStateType.loaded, messages: List.from(messages)),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    emit(state.copyWith(type: ChatStateType.contentLoading));
 
     final aiMessage = ChatMessageModel(
       id: '${DateTime.now().microsecondsSinceEpoch}',
@@ -42,34 +47,50 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       timestamp: DateTime.now(),
     );
 
+    messages.add(aiMessage);
+
+    String updatedAiMessage = "";
+
     final Stream<GenerateContentResponse> stream = _chatRepository
         .generateContent(event.prompt);
 
     await for (final response in stream) {
+      if (_isStreamCancelled) break;
       if (response.candidates.isNotEmpty) {
         for (final Candidate candidate in response.candidates) {
           final finishReason = candidate.finishReason;
-          final text = candidate.text ?? '';
-          messages.add(aiMessage);
+          updatedAiMessage += candidate.text ?? '';
 
-          if (finishReason != null && finishReason != FinishReason.unknown) {
-            final content = aiMessage.content + text;
-            final updatedAiMessage = messages.last.copyWith(content: content);
-            messages[messages.length - 1] = updatedAiMessage;
-            emit(ChatLoaded(List.from(messages)));
-          } else if (finishReason == FinishReason.stop) {
+          final updatedAiMessageModel = messages.last.copyWith(
+            content: updatedAiMessage,
+          );
+          messages[messages.length - 1] = updatedAiMessageModel;
+          emit(
+            state.copyWith(
+              type: ChatStateType.loaded,
+              messages: List.from(messages),
+            ),
+          );
+
+          if (finishReason == FinishReason.stop) {
             add(StreamContentFinished());
           } else if (finishReason == FinishReason.maxTokens) {
-            add(StreamContentError('Max Tokens reached'));
+            add(const StreamContentError('Max Tokens reached'));
           } else if (finishReason == FinishReason.safety) {
             add(
-              StreamContentError('Your message was blocked by safety filters'),
+              const StreamContentError(
+                'Your message was blocked by safety filters',
+              ),
             );
           } else if (finishReason == FinishReason.other) {
-            add(StreamContentError('An unknown error occurred'));
+            add(const StreamContentError('An unknown error occurred'));
           }
         }
       }
+    }
+
+    if (_isStreamCancelled) {
+      _isStreamCancelled = false;
     }
   }
 
@@ -77,13 +98,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     StreamContentFinished event,
     Emitter<ChatState> emit,
   ) {
-    emit(ContentCompleted());
+    _isStreamCancelled = true;
+    emit(state.copyWith(type: ChatStateType.loaded));
   }
 
   void _onStreamContentError(
     StreamContentError event,
     Emitter<ChatState> emit,
   ) {
-    emit(ContentError(event.error));
+    emit(
+      state.copyWith(
+        type: ChatStateType.contentError,
+        errorMessage: event.error,
+      ),
+    );
   }
 }

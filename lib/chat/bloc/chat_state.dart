@@ -1,41 +1,35 @@
 part of 'chat_bloc.dart';
 
-sealed class ChatState {
-  const ChatState();
-}
-
-class ChatInitial extends ChatState {
-  const ChatInitial();
-}
-
-class ContentLoading extends ChatState {
-  const ContentLoading();
-}
-
-class ContentStreaming extends ChatState {
-  final String response;
-
-  const ContentStreaming(this.response);
-}
-
-class ContentCompleted extends ChatState {
-  const ContentCompleted();
-}
-
-class ContentError extends ChatState {
-  final String error;
-
-  const ContentError(this.error);
-}
-
-class ChatLoaded extends ChatState {
+class ChatState {
+  final ChatStateType type;
   final List<ChatMessageModel> messages;
+  final String? errorMessage;
 
-  const ChatLoaded(this.messages);
+  const ChatState({
+    this.type = ChatStateType.initial,
+    List<ChatMessageModel>? messages,
+    String? errorMessage,
+  }) : messages = messages ?? const [],
+       errorMessage = errorMessage ?? '';
+
+  ChatState copyWith({
+    ChatStateType? type,
+    List<ChatMessageModel>? messages,
+    String? errorMessage,
+  }) {
+    return ChatState(
+      type: type ?? this.type,
+      messages: messages ?? this.messages,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
 }
 
-class ChatError extends ChatState {
-  final String error;
-
-  const ChatError(this.error);
+enum ChatStateType {
+  initial,
+  contentLoading,
+  contentStreaming,
+  contentError,
+  loaded,
+  error,
 }
